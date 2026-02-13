@@ -1,0 +1,1174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Server Dashboard</title>
+<style>
+/* ======================================================================
+   RESET & BASE
+   ====================================================================== */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg:          #0a0a0f;
+  --bg-card:     #111118;
+  --bg-card-alt: #16161f;
+  --border:      #1e1e2a;
+  --border-hover:#2a2a3a;
+  --text:        #e4e4ed;
+  --text-dim:    #6b6b80;
+  --text-muted:  #44445a;
+  --green:       #4ade80;
+  --green-dim:   #4ade8020;
+  --amber:       #f59e0b;
+  --amber-dim:   #f59e0b20;
+  --red:         #ef4444;
+  --red-dim:     #ef444420;
+  --cyan:        #00d4ff;
+  --cyan-dim:    #00d4ff15;
+  --mono:        'SF Mono', 'Cascadia Code', 'Fira Code', 'JetBrains Mono', 'Consolas', monospace;
+  --sans:        -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', system-ui, sans-serif;
+  --radius:      10px;
+  --radius-sm:   6px;
+  --transition:  0.35s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+html { font-size: 15px; }
+
+body {
+  font-family: var(--sans);
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overflow-x: hidden;
+}
+
+/* ======================================================================
+   HEADER
+   ====================================================================== */
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1.2rem 1.5rem;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  backdrop-filter: blur(12px);
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.logo {
+  font-family: var(--mono);
+  font-size: 1.1rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--text);
+}
+
+.logo span { color: var(--cyan); }
+
+.hostname {
+  font-family: var(--mono);
+  font-size: 0.75rem;
+  color: var(--text-dim);
+  background: var(--bg-card-alt);
+  padding: 0.2rem 0.6rem;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.live-badge {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-family: var(--mono);
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--green);
+}
+
+.live-dot {
+  width: 7px;
+  height: 7px;
+  background: var(--green);
+  border-radius: 50%;
+  animation: pulse 2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(74, 222, 128, 0.5); }
+  50%      { opacity: 0.6; box-shadow: 0 0 0 6px rgba(74, 222, 128, 0); }
+}
+
+.live-badge.disconnected { color: var(--red); }
+.live-badge.disconnected .live-dot {
+  background: var(--red);
+  animation: pulse-red 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse-red {
+  0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.5); }
+  50%      { opacity: 0.4; box-shadow: 0 0 0 6px rgba(239, 68, 68, 0); }
+}
+
+.timestamp {
+  font-family: var(--mono);
+  font-size: 0.7rem;
+  color: var(--text-muted);
+}
+
+/* ======================================================================
+   LAYOUT
+   ====================================================================== */
+.dashboard {
+  max-width: 1440px;
+  margin: 0 auto;
+  padding: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+/* ======================================================================
+   CARDS — shared
+   ====================================================================== */
+.card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  transition: border-color var(--transition);
+}
+
+.card:hover { border-color: var(--border-hover); }
+
+.card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.8rem 1rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.card-title {
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--text-dim);
+}
+
+.card-badge {
+  font-family: var(--mono);
+  font-size: 0.65rem;
+  padding: 0.15rem 0.5rem;
+  border-radius: 4px;
+  background: var(--cyan-dim);
+  color: var(--cyan);
+}
+
+.card-body { padding: 1rem; }
+
+/* ======================================================================
+   METRIC CARDS (top row)
+   ====================================================================== */
+.metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1.25rem;
+}
+
+.metric-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1.2rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  transition: border-color var(--transition);
+  position: relative;
+  overflow: hidden;
+}
+
+.metric-card:hover { border-color: var(--border-hover); }
+
+.metric-card::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: var(--cyan);
+  opacity: 0;
+  transition: opacity var(--transition);
+}
+
+.metric-card:hover::after { opacity: 1; }
+
+.metric-label {
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--text-dim);
+}
+
+.metric-value {
+  font-family: var(--mono);
+  font-size: 2rem;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: -0.03em;
+  transition: color var(--transition);
+}
+
+.metric-sub {
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  color: var(--text-muted);
+}
+
+.metric-bar-track {
+  height: 3px;
+  background: var(--border);
+  border-radius: 2px;
+  margin-top: 0.3rem;
+  overflow: hidden;
+}
+
+.metric-bar-fill {
+  height: 100%;
+  border-radius: 2px;
+  transition: width var(--transition), background var(--transition);
+  background: var(--cyan);
+}
+
+/* Color thresholds */
+.color-ok   { color: var(--green); }
+.color-warn { color: var(--amber); }
+.color-crit { color: var(--red); }
+.fill-ok    { background: var(--green); }
+.fill-warn  { background: var(--amber); }
+.fill-crit  { background: var(--red); }
+
+/* ======================================================================
+   TWO-COLUMN ROW
+   ====================================================================== */
+.row-2col {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 1.25rem;
+}
+
+/* ======================================================================
+   CPU CORES
+   ====================================================================== */
+.cores-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 0.6rem;
+}
+
+.core-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.core-label {
+  display: flex;
+  justify-content: space-between;
+  font-family: var(--mono);
+  font-size: 0.65rem;
+  color: var(--text-dim);
+}
+
+.core-bar-track {
+  height: 6px;
+  background: var(--border);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.core-bar-fill {
+  height: 100%;
+  border-radius: 3px;
+  transition: width var(--transition), background var(--transition);
+  background: var(--cyan);
+}
+
+/* ======================================================================
+   LOAD AVERAGE
+   ====================================================================== */
+.load-items {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.load-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.load-item-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+}
+
+.load-label {
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-dim);
+}
+
+.load-value {
+  font-family: var(--mono);
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+
+.load-bar-track {
+  height: 4px;
+  background: var(--border);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.load-bar-fill {
+  height: 100%;
+  border-radius: 2px;
+  transition: width var(--transition), background var(--transition);
+}
+
+/* ======================================================================
+   NETWORK
+   ====================================================================== */
+.network-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.8rem;
+}
+
+.net-item {
+  background: var(--bg-card-alt);
+  border-radius: var(--radius-sm);
+  padding: 0.8rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.net-label {
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-dim);
+}
+
+.net-value {
+  font-family: var(--mono);
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--cyan);
+}
+
+.net-rate {
+  font-family: var(--mono);
+  font-size: 0.7rem;
+  color: var(--text-muted);
+}
+
+/* ======================================================================
+   SYSTEM INFO
+   ====================================================================== */
+.sys-info {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.sys-tag {
+  font-family: var(--mono);
+  font-size: 0.68rem;
+  padding: 0.25rem 0.6rem;
+  border-radius: 4px;
+  background: var(--bg-card-alt);
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+}
+
+.sys-tag b { color: var(--text); font-weight: 600; }
+
+/* ======================================================================
+   DOCKER SERVICES
+   ====================================================================== */
+.services-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 0.8rem;
+}
+
+.service-card {
+  background: var(--bg-card-alt);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 0.9rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  transition: border-color var(--transition), transform 0.15s ease;
+}
+
+.service-card:hover {
+  border-color: var(--border-hover);
+  transform: translateY(-1px);
+}
+
+.service-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.status-dot.running { background: var(--green); box-shadow: 0 0 6px rgba(74,222,128,0.4); }
+.status-dot.exited  { background: var(--red); box-shadow: 0 0 6px rgba(239,68,68,0.3); }
+.status-dot.paused  { background: var(--amber); }
+
+.service-name {
+  font-family: var(--mono);
+  font-size: 0.82rem;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.service-details {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.service-detail {
+  font-family: var(--mono);
+  font-size: 0.65rem;
+  color: var(--text-dim);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.service-status-text {
+  font-size: 0.65rem;
+  font-weight: 500;
+}
+
+.service-status-text.running { color: var(--green); }
+.service-status-text.exited  { color: var(--red); }
+
+/* ======================================================================
+   SESSIONS
+   ====================================================================== */
+.sessions-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 0.8rem;
+}
+
+.session-card {
+  background: var(--bg-card-alt);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 0.9rem;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  transition: border-color var(--transition);
+}
+
+.session-card:hover { border-color: var(--border-hover); }
+
+.session-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  background: var(--cyan-dim);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.85rem;
+  flex-shrink: 0;
+  color: var(--cyan);
+  border: 1px solid #00d4ff30;
+}
+
+.session-info { flex: 1; min-width: 0; }
+
+.session-name {
+  font-family: var(--mono);
+  font-size: 0.82rem;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.session-meta {
+  font-size: 0.68rem;
+  color: var(--text-dim);
+  display: flex;
+  gap: 0.6rem;
+  margin-top: 0.15rem;
+}
+
+.session-badge {
+  font-family: var(--mono);
+  font-size: 0.6rem;
+  padding: 0.15rem 0.45rem;
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+
+.session-badge.attached {
+  background: var(--green-dim);
+  color: var(--green);
+}
+
+.session-badge.detached {
+  background: var(--bg-card);
+  color: var(--text-muted);
+  border: 1px solid var(--border);
+}
+
+/* ======================================================================
+   PROCESSES TABLE
+   ====================================================================== */
+.procs-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.25rem;
+}
+
+.proc-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--mono);
+  font-size: 0.7rem;
+}
+
+.proc-table th {
+  text-align: left;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+  padding: 0.5rem 0.6rem;
+  border-bottom: 1px solid var(--border);
+  font-size: 0.62rem;
+}
+
+.proc-table td {
+  padding: 0.45rem 0.6rem;
+  color: var(--text-dim);
+  border-bottom: 1px solid #1a1a24;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 200px;
+}
+
+.proc-table tr:last-child td { border-bottom: none; }
+.proc-table tr:hover td { color: var(--text); background: var(--bg-card-alt); }
+
+.proc-table .val-col {
+  color: var(--cyan);
+  font-weight: 600;
+  text-align: right;
+}
+
+/* ======================================================================
+   EMPTY / PLACEHOLDER STATE
+   ====================================================================== */
+.empty-state {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+}
+
+/* ======================================================================
+   RESPONSIVE
+   ====================================================================== */
+@media (max-width: 1024px) {
+  .metrics-grid { grid-template-columns: repeat(2, 1fr); }
+  .row-2col { grid-template-columns: 1fr; }
+  .procs-row { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 640px) {
+  html { font-size: 14px; }
+  .header { padding: 1rem; flex-wrap: wrap; gap: 0.5rem; }
+  .dashboard { padding: 0.75rem; gap: 1rem; }
+  .metrics-grid { grid-template-columns: repeat(2, 1fr); gap: 0.75rem; }
+  .metric-value { font-size: 1.5rem; }
+  .services-grid { grid-template-columns: 1fr; }
+  .sessions-list { grid-template-columns: 1fr; }
+  .network-grid { grid-template-columns: 1fr; }
+  .cores-grid { grid-template-columns: repeat(2, 1fr); }
+  .proc-table { font-size: 0.65rem; }
+}
+
+/* Touch-friendly tap targets */
+@media (pointer: coarse) {
+  .service-card, .session-card { min-height: 44px; padding: 1rem; }
+  .proc-table td, .proc-table th { padding: 0.6rem; }
+}
+
+/* ======================================================================
+   SKELETON LOADING
+   ====================================================================== */
+.skeleton {
+  background: linear-gradient(90deg, var(--bg-card-alt) 25%, #1c1c28 50%, var(--bg-card-alt) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s ease-in-out infinite;
+  border-radius: 4px;
+}
+
+@keyframes shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* ======================================================================
+   TRANSITIONS for value updates
+   ====================================================================== */
+.flash {
+  transition: color 0.1s ease;
+}
+
+.flash-update {
+  color: var(--cyan) !important;
+}
+</style>
+</head>
+<body>
+
+<!-- ===================================================================
+     HEADER
+     =================================================================== -->
+<header class="header">
+  <div class="header-left">
+    <div class="logo"><span>&gt;</span> server<span>.</span>stats</div>
+    <div class="hostname" id="hostname">---</div>
+  </div>
+  <div class="header-right">
+    <div class="timestamp" id="timestamp">--:--:--</div>
+    <div class="live-badge" id="liveBadge">
+      <div class="live-dot"></div>
+      <span id="liveText">LIVE</span>
+    </div>
+  </div>
+</header>
+
+<!-- ===================================================================
+     DASHBOARD
+     =================================================================== -->
+<main class="dashboard">
+
+  <!-- ROW 1: KEY METRICS -->
+  <section class="metrics-grid">
+    <div class="metric-card" id="mc-cpu">
+      <div class="metric-label">CPU Usage</div>
+      <div class="metric-value flash" id="val-cpu">--<span style="font-size:0.5em;opacity:0.5">%</span></div>
+      <div class="metric-sub" id="sub-cpu">-- cores</div>
+      <div class="metric-bar-track"><div class="metric-bar-fill" id="bar-cpu" style="width:0%"></div></div>
+    </div>
+    <div class="metric-card" id="mc-mem">
+      <div class="metric-label">Memory</div>
+      <div class="metric-value flash" id="val-mem">--<span style="font-size:0.5em;opacity:0.5">%</span></div>
+      <div class="metric-sub" id="sub-mem">-- / --</div>
+      <div class="metric-bar-track"><div class="metric-bar-fill" id="bar-mem" style="width:0%"></div></div>
+    </div>
+    <div class="metric-card" id="mc-disk">
+      <div class="metric-label">Disk</div>
+      <div class="metric-value flash" id="val-disk">--<span style="font-size:0.5em;opacity:0.5">%</span></div>
+      <div class="metric-sub" id="sub-disk">-- / --</div>
+      <div class="metric-bar-track"><div class="metric-bar-fill" id="bar-disk" style="width:0%"></div></div>
+    </div>
+    <div class="metric-card" id="mc-uptime">
+      <div class="metric-label">Uptime</div>
+      <div class="metric-value flash" id="val-uptime" style="font-size:1.5rem">--</div>
+      <div class="metric-sub" id="sub-uptime">--</div>
+    </div>
+  </section>
+
+  <!-- ROW 2: CPU CORES + LOAD AVERAGE -->
+  <section class="row-2col">
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">CPU Cores</div>
+        <div class="card-badge" id="cpu-model">--</div>
+      </div>
+      <div class="card-body">
+        <div class="cores-grid" id="cores-grid"></div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">Load Average</div>
+      </div>
+      <div class="card-body">
+        <div class="load-items" id="load-items">
+          <div class="load-item">
+            <div class="load-item-header">
+              <span class="load-label">1 min</span>
+              <span class="load-value flash" id="load-1m">--</span>
+            </div>
+            <div class="load-bar-track"><div class="load-bar-fill" id="load-bar-1m" style="width:0%"></div></div>
+          </div>
+          <div class="load-item">
+            <div class="load-item-header">
+              <span class="load-label">5 min</span>
+              <span class="load-value flash" id="load-5m">--</span>
+            </div>
+            <div class="load-bar-track"><div class="load-bar-fill" id="load-bar-5m" style="width:0%"></div></div>
+          </div>
+          <div class="load-item">
+            <div class="load-item-header">
+              <span class="load-label">15 min</span>
+              <span class="load-value flash" id="load-15m">--</span>
+            </div>
+            <div class="load-bar-track"><div class="load-bar-fill" id="load-bar-15m" style="width:0%"></div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ROW 2b: NETWORK + SYSTEM INFO -->
+  <section class="row-2col">
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">Network I/O</div>
+      </div>
+      <div class="card-body">
+        <div class="network-grid" id="network-grid">
+          <div class="net-item">
+            <div class="net-label">Received</div>
+            <div class="net-value" id="net-in">--</div>
+            <div class="net-rate" id="net-in-rate">-- /s</div>
+          </div>
+          <div class="net-item">
+            <div class="net-label">Transmitted</div>
+            <div class="net-value" id="net-out">--</div>
+            <div class="net-rate" id="net-out-rate">-- /s</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">System</div>
+      </div>
+      <div class="card-body">
+        <div class="sys-info" id="sys-info"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ROW 3: DOCKER SERVICES -->
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title">Docker Services</div>
+      <div class="card-badge" id="docker-count">0 containers</div>
+    </div>
+    <div class="card-body">
+      <div class="services-grid" id="services-grid">
+        <div class="empty-state">Waiting for data...</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ROW 4: TMUX / CLAUDE SESSIONS -->
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title">Tmux Sessions</div>
+      <div class="card-badge" id="session-count">0 sessions</div>
+    </div>
+    <div class="card-body">
+      <div class="sessions-list" id="sessions-list">
+        <div class="empty-state">Waiting for data...</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ROW 5: TOP PROCESSES -->
+  <section class="procs-row">
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">Top Processes by CPU</div>
+      </div>
+      <div class="card-body" style="padding:0">
+        <table class="proc-table" id="procs-cpu">
+          <thead>
+            <tr><th>Command</th><th>User</th><th>PID</th><th class="val-col">CPU %</th></tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">Top Processes by Memory</div>
+      </div>
+      <div class="card-body" style="padding:0">
+        <table class="proc-table" id="procs-mem">
+          <thead>
+            <tr><th>Command</th><th>User</th><th>PID</th><th class="val-col">MEM %</th></tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<!-- ===================================================================
+     JAVASCRIPT
+     =================================================================== -->
+<script>
+(function() {
+  'use strict';
+
+  // ---- DOM refs ----
+  const $ = (id) => document.getElementById(id);
+
+  // ---- Helpers ----
+  function thresholdClass(val, warn, crit) {
+    if (val >= crit) return 'crit';
+    if (val >= warn) return 'warn';
+    return 'ok';
+  }
+
+  function setBarColor(el, level) {
+    el.classList.remove('fill-ok', 'fill-warn', 'fill-crit');
+    el.classList.add('fill-' + level);
+  }
+
+  function setTextColor(el, level) {
+    el.classList.remove('color-ok', 'color-warn', 'color-crit');
+    el.classList.add('color-' + level);
+  }
+
+  function flashEl(el) {
+    el.classList.add('flash-update');
+    setTimeout(() => el.classList.remove('flash-update'), 300);
+  }
+
+  function escHtml(s) {
+    const div = document.createElement('div');
+    div.textContent = s;
+    return div.innerHTML;
+  }
+
+  // ---- Render functions ----
+
+  function renderMetrics(sys) {
+    // CPU
+    const cpuLvl = thresholdClass(sys.cpu.overall, 60, 85);
+    const cpuEl = $('val-cpu');
+    cpuEl.innerHTML = sys.cpu.overall + '<span style="font-size:0.5em;opacity:0.5">%</span>';
+    setTextColor(cpuEl, cpuLvl);
+    flashEl(cpuEl);
+    $('sub-cpu').textContent = sys.cpu.count + ' cores \u00b7 ' + sys.cpu.model.split(' ').slice(0, 3).join(' ');
+    $('bar-cpu').style.width = sys.cpu.overall + '%';
+    setBarColor($('bar-cpu'), cpuLvl);
+
+    // Memory
+    const memLvl = thresholdClass(sys.memory.percent, 70, 90);
+    const memEl = $('val-mem');
+    memEl.innerHTML = sys.memory.percent + '<span style="font-size:0.5em;opacity:0.5">%</span>';
+    setTextColor(memEl, memLvl);
+    flashEl(memEl);
+    $('sub-mem').textContent = sys.memory.used + ' / ' + sys.memory.total;
+    $('bar-mem').style.width = sys.memory.percent + '%';
+    setBarColor($('bar-mem'), memLvl);
+
+    // Disk
+    const diskLvl = thresholdClass(sys.disk.percent, 70, 90);
+    const diskEl = $('val-disk');
+    diskEl.innerHTML = sys.disk.percent + '<span style="font-size:0.5em;opacity:0.5">%</span>';
+    setTextColor(diskEl, diskLvl);
+    flashEl(diskEl);
+    $('sub-disk').textContent = sys.disk.used + ' / ' + sys.disk.total;
+    $('bar-disk').style.width = sys.disk.percent + '%';
+    setBarColor($('bar-disk'), diskLvl);
+
+    // Uptime
+    const upEl = $('val-uptime');
+    upEl.textContent = sys.uptime;
+    flashEl(upEl);
+    $('sub-uptime').textContent = sys.platform + ' ' + sys.arch;
+  }
+
+  function renderCores(cpu) {
+    const grid = $('cores-grid');
+    const coreCount = cpu.cores.length;
+
+    // Re-create only if count changed
+    if (grid.childElementCount !== coreCount) {
+      grid.innerHTML = '';
+      for (let i = 0; i < coreCount; i++) {
+        const item = document.createElement('div');
+        item.className = 'core-item';
+        item.innerHTML =
+          '<div class="core-label"><span>Core ' + i + '</span><span class="core-val" id="core-val-' + i + '">0%</span></div>' +
+          '<div class="core-bar-track"><div class="core-bar-fill" id="core-bar-' + i + '" style="width:0%"></div></div>';
+        grid.appendChild(item);
+      }
+    }
+
+    for (let i = 0; i < coreCount; i++) {
+      const val = cpu.cores[i];
+      const lvl = thresholdClass(val, 60, 85);
+      const barEl = $('core-bar-' + i);
+      const valEl = $('core-val-' + i);
+      if (barEl) {
+        barEl.style.width = val + '%';
+        setBarColor(barEl, lvl);
+      }
+      if (valEl) valEl.textContent = val + '%';
+    }
+
+    $('cpu-model').textContent = cpu.model.split(' ').slice(0, 4).join(' ');
+  }
+
+  function renderLoad(load, cpuCount) {
+    const maxLoad = cpuCount || 1;
+    ['1m', '5m', '15m'].forEach((key) => {
+      const val = parseFloat(load[key]);
+      const pct = Math.min(100, (val / maxLoad) * 100);
+      const lvl = thresholdClass(pct, 60, 85);
+      const el = $('load-' + key);
+      const barEl = $('load-bar-' + key);
+      if (el) {
+        el.textContent = load[key];
+        setTextColor(el, lvl);
+      }
+      if (barEl) {
+        barEl.style.width = pct + '%';
+        setBarColor(barEl, lvl);
+      }
+    });
+  }
+
+  function renderNetwork(net) {
+    $('net-in').textContent = net.bytesIn;
+    $('net-out').textContent = net.bytesOut;
+    $('net-in-rate').textContent = '\u25b2 ' + net.rateIn;
+    $('net-out-rate').textContent = '\u25bc ' + net.rateOut;
+  }
+
+  function renderSysInfo(sys) {
+    const info = $('sys-info');
+    info.innerHTML =
+      '<div class="sys-tag"><b>' + escHtml(sys.hostname) + '</b></div>' +
+      '<div class="sys-tag">' + escHtml(sys.platform) + ' / ' + escHtml(sys.arch) + '</div>' +
+      '<div class="sys-tag">kernel <b>' + escHtml(sys.kernel) + '</b></div>';
+    $('hostname').textContent = sys.hostname;
+  }
+
+  function renderDocker(services) {
+    const grid = $('services-grid');
+    if (!services || services.length === 0) {
+      grid.innerHTML = '<div class="empty-state">No containers detected</div>';
+      $('docker-count').textContent = '0 containers';
+      return;
+    }
+
+    const running = services.filter(s => s.running).length;
+    const stopped = services.length - running;
+    $('docker-count').textContent = running + ' running' + (stopped ? ' \u00b7 ' + stopped + ' stopped' : '');
+
+    // Sort: running first, then by name
+    services.sort((a, b) => {
+      if (a.running !== b.running) return a.running ? -1 : 1;
+      return a.name.localeCompare(b.name);
+    });
+
+    grid.innerHTML = services.map((s) => {
+      const stateClass = s.running ? 'running' : 'exited';
+      return '<div class="service-card">' +
+        '<div class="service-header">' +
+          '<div class="status-dot ' + stateClass + '"></div>' +
+          '<div class="service-name">' + escHtml(s.name) + '</div>' +
+        '</div>' +
+        '<div class="service-details">' +
+          '<div class="service-status-text ' + stateClass + '">' + escHtml(s.status) + '</div>' +
+          '<div class="service-detail">' + escHtml(s.image) + '</div>' +
+          (s.ports ? '<div class="service-detail">' + escHtml(s.ports) + '</div>' : '') +
+        '</div>' +
+      '</div>';
+    }).join('');
+  }
+
+  function renderSessions(sessions) {
+    const list = $('sessions-list');
+    if (!sessions || sessions.length === 0) {
+      list.innerHTML = '<div class="empty-state">No active tmux sessions</div>';
+      $('session-count').textContent = '0 sessions';
+      return;
+    }
+
+    $('session-count').textContent = sessions.length + ' session' + (sessions.length !== 1 ? 's' : '');
+
+    list.innerHTML = sessions.map((s) => {
+      const attached = s.attached;
+      return '<div class="session-card">' +
+        '<div class="session-icon">\u25b6</div>' +
+        '<div class="session-info">' +
+          '<div class="session-name">' + escHtml(s.name) + '</div>' +
+          '<div class="session-meta">' +
+            '<span>' + s.windows + ' window' + (s.windows !== 1 ? 's' : '') + '</span>' +
+            (s.created ? '<span>' + escHtml(s.created) + '</span>' : '') +
+          '</div>' +
+        '</div>' +
+        '<div class="session-badge ' + (attached ? 'attached' : 'detached') + '">' +
+          (attached ? 'attached' : 'detached') +
+        '</div>' +
+      '</div>';
+    }).join('');
+  }
+
+  function renderProcesses(procs) {
+    function renderTable(tableId, data, valKey) {
+      const tbody = document.querySelector('#' + tableId + ' tbody');
+      if (!data || data.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:var(--text-muted)">No data</td></tr>';
+        return;
+      }
+      tbody.innerHTML = data.map((p) =>
+        '<tr>' +
+          '<td>' + escHtml(p.command) + '</td>' +
+          '<td>' + escHtml(p.user) + '</td>' +
+          '<td>' + escHtml(p.pid) + '</td>' +
+          '<td class="val-col">' + escHtml(p[valKey]) + '</td>' +
+        '</tr>'
+      ).join('');
+    }
+    renderTable('procs-cpu', procs.byCpu, 'cpu');
+    renderTable('procs-mem', procs.byMem, 'mem');
+  }
+
+  // ---- SSE connection ----
+  let evtSource = null;
+  let reconnectTimer = null;
+
+  function setConnectionStatus(connected) {
+    const badge = $('liveBadge');
+    const text = $('liveText');
+    if (connected) {
+      badge.classList.remove('disconnected');
+      text.textContent = 'LIVE';
+    } else {
+      badge.classList.add('disconnected');
+      text.textContent = 'RECONNECTING';
+    }
+  }
+
+  function connect() {
+    if (evtSource) {
+      evtSource.close();
+    }
+
+    evtSource = new EventSource('/api/stream');
+
+    evtSource.onopen = function() {
+      setConnectionStatus(true);
+      if (reconnectTimer) {
+        clearTimeout(reconnectTimer);
+        reconnectTimer = null;
+      }
+    };
+
+    evtSource.onmessage = function(e) {
+      try {
+        const data = JSON.parse(e.data);
+        renderMetrics(data.system);
+        renderCores(data.system.cpu);
+        renderLoad(data.system.loadAvg, data.system.cpu.count);
+        renderNetwork(data.system.network);
+        renderSysInfo(data.system);
+        renderDocker(data.docker);
+        renderSessions(data.sessions);
+        renderProcesses(data.processes);
+        $('timestamp').textContent = new Date(data.timestamp).toLocaleTimeString();
+      } catch (err) {
+        console.error('Parse error:', err);
+      }
+    };
+
+    evtSource.onerror = function() {
+      setConnectionStatus(false);
+      evtSource.close();
+      reconnectTimer = setTimeout(connect, 3000);
+    };
+  }
+
+  // ---- Init ----
+  connect();
+
+  // ---- Mobile: swipe-to-refresh ----
+  let touchStartY = 0;
+  document.addEventListener('touchstart', function(e) {
+    touchStartY = e.touches[0].clientY;
+  }, { passive: true });
+
+  document.addEventListener('touchend', function(e) {
+    const dy = e.changedTouches[0].clientY - touchStartY;
+    if (dy > 120 && window.scrollY === 0) {
+      // Pull-to-refresh: reconnect SSE
+      if (evtSource) evtSource.close();
+      connect();
+    }
+  }, { passive: true });
+})();
+</script>
+</body>
+</html>

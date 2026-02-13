@@ -1,0 +1,12 @@
+services:
+  server-stats:
+    build: .
+    ports:
+      - "3009:3009"
+    restart: unless-stopped
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /proc:/host/proc:ro
+    environment:
+      - HOST_PROC=/host/proc
+    pid: host
